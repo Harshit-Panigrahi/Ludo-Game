@@ -12,10 +12,11 @@ IP_ADDRESS = None
 
 canvas1 = None
 canvas2 = None
-playerName = None
 nameEntry = None
+playerName = None
 nameWindow = None
 gameWindow = None
+
 dice = None
 finishingBox = None
 rollBtn = None
@@ -25,13 +26,72 @@ playerTurn = None
 leftBoxes = []
 rightBoxes = []
 
+def checkColorPosition(boxes, color):
+  for box in boxes: 
+    boxColor = box.cget("bg")
+    if(boxColor == color):
+      return boxes.index(box)
+    return False
+
+def movePlayer1(steps):
+  global leftBoxes, finishingBox, SERVER, playerName
+  boxPosition = checkColorPosition(leftBoxes[1:], "red")
+  if boxPosition:
+    diceValue = steps
+    coloredBoxIndex = boxPosition
+    totalSteps = 10
+    remainingSteps = totalSteps - steps
+
+    if steps == remainingSteps:
+      for box in leftBoxes[1:]:
+        box.configure(bg = "white")
+      finishingBox.configure(bg = "red")
+
+      greetmsg = f'Red wins the game.'
+      SERVER.send(greetmsg.encode('utf-8'))
+
+    elif steps < remainingSteps:
+      for box in leftBoxes[1:]:
+        box.configure(bg = "white")
+      nextStep = (coloredBoxIndex + 1) + diceValue
+      leftBoxes[nextStep].configure(bg = "red")
+
+    else:
+      print("Wrong Move")
+    
+  else:
+    leftBoxes[steps - 1].configure(bg = "red")
+
+def movePlayer2(steps):
+  global rightBoxes, finishingBox
+  tempBoxes = rightBoxes[-2::-1]
+  boxPosition = checkColorPosition(tempBoxes, "yellow")
+  if boxPosition:
+    diceValue = steps
+    coloredBoxIndex = boxPosition
+    totalSteps = 10
+    remainingSteps = totalSteps - steps
+
+    if diceValue == remainingSteps:
+      for box in tempBoxes:
+        box.configure(bg="white")
+      finishingBox.configure(bg="yellow")
+      SERVER.send("Yellow has won".encode("utf-8"))
+
+    elif diceValue < remainingSteps:
+      for box in tempBoxes:
+        box.configure(bg="white")
+      nextStep = (boxPosition+1) - diceValue
+      tempBoxes[nextStep].configure(bg="yellow")
+      
+    else:
+      print("Wrong move")
+
+  else:
+    rightBoxes[-1*steps].configure(bg="yellow")
+
 def askPlayerName():
-  global playerName
-  global nameEntry
-  global nameWindow
-  global canvas1
-  global screen_width
-  global screen_height
+  global playerName, nameEntry, nameWindow, canvas1, screen_width, screen_height
 
   nameWindow  = Tk()
   nameWindow.title("Ludo Ladder")
@@ -58,10 +118,7 @@ def askPlayerName():
   nameWindow.mainloop()
 
 def rollDice():
-  global SERVER
-  global playerType
-  global rollBtn
-  global playerTurn
+  global SERVER, playerType, rollBtn, playerTurn
 
   diceChoices=["\u2680", "\u2681", "\u2682", "\u2683", "\u2684", "\u2685"]
   value = random.choice(diceChoices)
@@ -75,18 +132,13 @@ def rollDice():
     SERVER.send(f"{value}player1-turn".encode("utf-8"))
 
 def createFinishingBox():
-  global finishingBox
-  global gameWindow
-  global screen_width
-  global screen_height
+  global finishingBox, gameWindow, screen_width, screen_height
 
   finishingBox = Label(gameWindow, text="Home", font=("Chalkboard SE", 25), width=6, height=3, borderwidth=0, bg="green", fg="white")
   finishingBox.place(x=screen_width/2 - 60, y=screen_height/2 - 115)
 
 def rightBoard():
-  global gameWindow
-  global rightBoxes
-  global screen_height
+  global gameWindow, rightBoxes, screen_height
 
   xPos = 700
   for box in range(10):
@@ -158,9 +210,9 @@ def createGameWindow():
   if playerType == "player1" and playerTurn:
     rollBtn.place(screen_width/2, screen_height/2 + 300)
   else:
+    print("Dice not visible")
     rollBtn.pack_forget()
 
-  gameWindow.resizable(True, True)
   gameWindow.mainloop()
 
 def saveName():

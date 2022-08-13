@@ -33,10 +33,10 @@ def handleClients(socket, name):
   playerType=CLIENTS[name]["player_type"]
   if(playerType== 'player1'):
     CLIENTS[name]['turn'] = True
-    socket.send(str({'player_type': CLIENTS[name]["player_type"], 'turn': CLIENTS[name]['turn'], 'player_name': name}).encode())
+    socket.send(str({'player_type': CLIENTS[name]["player_type"], 'turn': CLIENTS[name]['turn'], 'player_name': name}).encode("utf-8"))
   else:
     CLIENTS[name]['turn'] = False
-    socket.send(str({'player_type': CLIENTS[name]["player_type"], 'turn': CLIENTS[name]['turn'], 'player_name': name}).encode())
+    socket.send(str({'player_type': CLIENTS[name]["player_type"], 'turn': CLIENTS[name]['turn'], 'player_name': name}).encode("utf-8"))
   
   while True:
     try:
