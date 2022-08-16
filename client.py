@@ -1,7 +1,7 @@
 import socket, random
 from tkinter import *
 from  threading import Thread
-from PIL import ImageTk, Image
+from PIL import ImageTk
 
 screen_width = None
 screen_height = None
@@ -17,11 +17,25 @@ playerName = None
 nameWindow = None
 gameWindow = None
 
+player1Name = 'joining'
+player2Name = 'joining'
+player1Label = None
+player2Label = None
+
+player1Score = 0 
+player2Score = 0
+player1ScoreLabel = None
+player2ScoreLabel = None
+
 dice = None
-finishingBox = None
 rollBtn = None
+resetBtn = None
 playerType = None
 playerTurn = None
+finishingBox = None
+
+winningMsg = None
+winingFunctionCall = 0
 
 leftBoxes = []
 rightBoxes = []
@@ -47,7 +61,7 @@ def movePlayer1(steps):
         box.configure(bg = "white")
       finishingBox.configure(bg = "red")
 
-      greetmsg = f'Red wins the game.'
+      greetmsg = 'Red wins the game.'
       SERVER.send(greetmsg.encode('utf-8'))
 
     elif steps < remainingSteps:
@@ -76,7 +90,7 @@ def movePlayer2(steps):
       for box in tempBoxes:
         box.configure(bg="white")
       finishingBox.configure(bg="yellow")
-      SERVER.send("Yellow has won".encode("utf-8"))
+      SERVER.send("Yellow wins the game".encode("utf-8"))
 
     elif diceValue < remainingSteps:
       for box in tempBoxes:
@@ -208,7 +222,7 @@ def createGameWindow():
   dice = canvas2.create_text(screen_width/2, screen_height/2 + 120, text = "\u2680", font=("Chalkboard SE", 200), fill="white", anchor=CENTER)
   rollBtn = Button(gameWindow, text="Roll Dice", bg="grey", font=("Chalkboard SE", 20), width=20, height=5, command=rollDice)
   if playerType == "player1" and playerTurn:
-    rollBtn.place(screen_width/2, screen_height/2 + 300)
+    rollBtn.place(x = screen_width/2, y = (screen_height/2)+150, anchor=CENTER)
   else:
     print("Dice not visible")
     rollBtn.pack_forget()
@@ -228,16 +242,132 @@ def saveName():
   #calling the game window
   createGameWindow()
 
-def setup():
+
+def restGame():
   global SERVER
-  global PORT
-  global IP_ADDRESS
+  SERVER.send("reset game".encode())
+
+def handleResetGame():
+  global canvas2
+  global playerType
+  global gameWindow
+  global rollBtn
+  global dice
+  global screen_width
+  global screen_height
+  global playerTurn
+  global rightBoxes
+  global leftBoxes
+  global finishingBox
+  global resetBtn
+  global winningMsg
+  global winingFunctionCall
+
+  canvas2.itemconfigure(dice, text='\u2680')
+
+  # Handling Reset Game
+  if playerType == 'player1':
+    rollBtn = Button(gameWindow,text="Roll Dice", fg='black', font=("Chalkboard SE", 15), bg="grey", command=rollDice, width=20, height=5)
+    rollBtn.place(x=screen_width / 2 - 80, y=screen_height/2  + 150)
+    playerTurn = True
+
+  if playerType == 'player2':
+    playerTurn = False
+
+  for rBox in rightBoxes[-2::-1]:
+    rBox.configure(bg='white')
+
+  for lBox  in leftBoxes[1:]:
+    lBox.configure(bg='white')
+
+  finishingBox.configure(bg='green')
+  canvas2.itemconfigure(winningMsg, text="")
+  resetBtn.destroy()
+
+  # Again Recreating Reset Button for next game
+  resetBtn =  Button(gameWindow,text="Reset Game", fg='black', font=("Chalkboard SE", 15), bg="grey",command=restGame, width=20, height=5)
+  winingFunctionCall = 0
+
+def receivedMsg():
+  global SERVER, playerType, playerTurn, rollBtn, screen_height, screen_width
+  global canvas2, dice, gameWindow, player1Name, player2Name, player1Label
+  global player2Label, winingFunctionCall
+
+  while True:
+    message = SERVER.recv(2048).decode()
+
+    if 'player_type' in message:
+      recvMsg = eval(message)
+      playerType = recvMsg['player_type']
+      playerTurn = recvMsg['turn']
+
+    elif 'player_names' in message:
+      players = eval(message)
+      players = players["player_names"]
+      for p in players:
+        if p["type"] == 'player1':
+          player1Name = p['name']
+        if p["type"] == 'player2':
+          player2Name = p['name']
+
+    elif ('⚀' in message):
+      canvas2.itemconfigure(dice, text = '\u2680')
+    elif ('⚁' in message):
+      canvas2.itemconfigure(dice, text = '\u2681')
+    elif ('⚂' in message):
+      canvas2.itemconfigure(dice, text = '\u2682')
+    elif ('⚃' in message):
+      canvas2.itemconfigure(dice, text = '\u2683')
+    elif ('⚄' in message):
+      canvas2.itemconfigure(dice, text = '\u2684')
+    elif ('⚅' in message):
+      canvas2.itemconfigure(dice, text = '\u2685')
+    elif ('wins the game.' in message and winingFunctionCall == 0):
+      winingFunctionCall +=1
+      handleWin(message)
+      
+    elif (message == 'reset game'):
+      handleResetGame()
+
+    if ('player1Turn' in message and playerType == 'player1'):
+      playerTurn = True
+      rollBtn = Button(gameWindow,text="Roll Dice", fg='black', font=("Chalkboard SE", 15), bg="grey",command=rollDice, width=20, height=5)
+      rollBtn.place(x=screen_width / 2 - 80, y=screen_height/2  + 250)
+
+    elif ('player2Turn' in message and playerType == 'player2'):
+      playerTurn = True
+      rollBtn = Button(gameWindow,text="Roll Dice", fg='black', font=("Chalkboard SE", 15), bg="grey",command=rollDice, width=20, height=5)
+      rollBtn.place(x=screen_width / 2 - 80, y=screen_height/2  + 250)
+
+    if ('player1Turn' in message or 'player2Turn' in message):
+      diceChoices = ['⚀','⚁','⚂','⚃','⚄','⚅']
+      diceValue = diceChoices.index(message[0]) 
+
+      if('player2Turn' in message):
+        movePlayer2(diceValue)
+      
+      elif('player1Turn' in message):
+        movePlayer1(diceValue)
+
+def handleWin(msg):
+  global gameWindow, dice, rollBtn, resetBtn, canvas2
+  rollBtn.destroy()
+  dice.destroy()
+  message = msg.split(".")[0] + "."
+  canvas2.itemconfigure(winningMsg, text = message)
+  resetBtn.place(relx=0.5, rely=0.7, anchor=CENTER)
+
+def setup():
+  global SERVER, PORT, IP_ADDRESS
 
   PORT = 5000
   IP_ADDRESS = '127.0.0.1'
 
   SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   SERVER.connect((IP_ADDRESS, PORT))
+
+  thread = Thread(target = receivedMsg)
+  thread.start()
 
   askPlayerName()
 
